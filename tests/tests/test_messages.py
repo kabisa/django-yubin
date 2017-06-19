@@ -9,7 +9,7 @@ import os
 from django.core import mail
 from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase, override_settings
-from django.template import Context, Template, TemplateDoesNotExist
+from django.template import Template, TemplateDoesNotExist
 from django.template.loader import get_template
 
 from django_yubin.messages import (
@@ -65,12 +65,10 @@ class TemplatedEmailMessageViewTestCase(EmailMessageViewTestCase):
         self.body = 'body'
         self.body_template = Template('{{ body }}')
 
-        self.context_dict = {
+        self.context = {
             'subject': self.subject,
             'body': self.body,
         }
-
-        self.context = Context(self.context_dict)
 
         self.render_subject = functools.partial(self.message.render_subject,
             context=self.context)
@@ -282,12 +280,10 @@ class TestEmailOptions(EmailMessageViewTestCase):
         self.body = 'body'
         self.body_template = Template('{{ body }}')
 
-        self.context_dict = {
+        self.context = {
             'subject': self.subject,
             'body': self.body,
         }
-
-        self.context = Context(self.context_dict)
 
         self.render_subject = functools.partial(self.message.render_subject,
                                                 context=self.context)
