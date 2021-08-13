@@ -9,6 +9,9 @@ response.
 It also provides with some classes that allows you to compose e-mails in the same way you compose your django
 templates, using different templates for subject, body and html content.
 
+Index
+=====
+
 .. toctree::
 
     install
@@ -16,6 +19,7 @@ templates, using different templates for subject, body and html content.
     mailviews
     settings
     contributing
+
 
 It's a fork!
 =============
@@ -46,7 +50,7 @@ Differences
 
 Some of the larger differences in django_yubin:
 
-* Needs Django 1.5+
+* Needs Django 1.9+
 
 * It saves a rendered version of the email instead - so HTML and other
   attachments are handled fine

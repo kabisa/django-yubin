@@ -1,13 +1,11 @@
 # encoding: utf-8
 
-import logging
 import sys
 
 from django.core.management.base import BaseCommand
 from django.db import connection
 from django_yubin import models, settings
 from django_yubin.engine import send_all
-from django_yubin.management.commands import create_handler
 
 
 class Command(BaseCommand):
@@ -23,6 +21,15 @@ class Command(BaseCommand):
             help='The number of messages to iterate before checking the queue '
                  'again (in case new messages have been added while the queue '
                  'is being cleared).',
+        )
+        parser.add_argument(
+            '-l',
+            '--message_limit',
+            dest='message_limit',
+            type=int,
+            default=0,
+            help='The maximum number of messages to send from the queue in a '
+                 'single pass (to avoid email rate throttles).',
         )
         parser.add_argument(
             '-c',
@@ -44,20 +51,9 @@ class Command(BaseCommand):
                                      deferred, deferred != 1 and 's' or ''))
             sys.exit()
 
-        # Send logged messages to the console.
-        logger = logging.getLogger('django_yubin')
-        handler = create_handler(verbosity)
-        logger.addHandler(handler)
-
-        # if PAUSE_SEND is turned on don't do anything.
-        if not settings.PAUSE_SEND:
-            send_all(options['block_size'], backend=settings.USE_BACKEND)
-        else:
-            logger = logging.getLogger('django_yubin.commands.send_mail')
-            logger.warning("Sending is paused, exiting without sending "
-                           "queued mail.")
-
-        logger.removeHandler(handler)
+        send_all(options['block_size'],
+                 backend=settings.USE_BACKEND,
+                 message_limit=options['message_limit'])
 
         # Stop superfluous "unexpected EOF on client connection" errors in
         # Postgres log files caused by the database connection not being

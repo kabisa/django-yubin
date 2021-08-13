@@ -32,3 +32,13 @@ LOCK_PATH = getattr(settings, "MAILER_LOCK_PATH", None)
 # the email addresses set in MAILER_TEST_EMAIL before being sent
 MAILER_TEST_MODE = getattr(settings, "MAILER_TEST_MODE", False)
 MAILER_TEST_EMAIL = getattr(settings, "MAILER_TEST_EMAIL", '')
+
+MAILER_HC_QUEUED_LIMIT_OLD = getattr(settings, "MAILER_HC_QUEUED_LIMIT_OLD", 30)
+
+# Tuple of strings with the fields to use in ``admin.Message.search_fields``
+# attribute.
+MAILER_MESSAGE_SEARCH_FIELDS = getattr(
+    settings,
+    "MAILER_MESSAGE_SEARCH_FIELDS",
+    ('to_address', 'subject', 'from_address', 'encoded_message'),
+)

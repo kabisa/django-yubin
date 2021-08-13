@@ -13,8 +13,7 @@ MAILER_PAUSE_SEND
 Provides a way of temporarily pausing the sending of mail. Defaults to
 ``False``.
 
-If this setting is ``True``, mail will not be sent when the ``send_mail``
-command is called.
+If this setting is ``True``, mail will not be sent by any function.
 
 
 MAILER_USE_BACKEND
@@ -34,8 +33,8 @@ Django Yubin.
 
 The default value is ``constants.PRIORITY_HIGH``. Valid values are ``None``
 or any of the priority from ``django_yubin.constants``:
-``PRIORITY_EMAIL_NOW``, ``PRIORITY_HIGH``, ``PRIORITY_NORMAL`` or
-``PRIORITY_LOW``.
+``PRIORITY_NOW_NOT_QUEUED``, ``PRIORITY_NOW``, ``PRIORITY_HIGH``,
+``PRIORITY_NORMAL`` or ``PRIORITY_LOW``.
 
 
 MAILER_MAIL_MANAGERS_PRIORITY
@@ -85,3 +84,19 @@ MAILER_TEST_EMAIL
 String with the email where all email are sent When MAILER_TEST_MODE is on.
 
 Defaults to ``''``.
+
+
+MAILER_HC_QUEUED_LIMIT_OLD
+--------------------------
+
+String to define the max minutes for the message health check. If there exists an old messages in the email's queue the health check will warn.
+
+Defaults to: ``30``
+
+
+MAILER_MESSAGE_SEARCH_FIELDS
+----------------------------
+
+Tuple of strings with the fields to use in ``admin.Message.search_fields`` attribute.
+
+Defaults to all the text fields: ``('to_address', 'subject', 'from_address', 'encoded_message')``

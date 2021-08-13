@@ -8,14 +8,18 @@ except ImportError:
     import urllib.parse as urlparse
 
 from django.conf import settings
+from django.contrib.sites.models import Site
 from django.core.exceptions import ImproperlyConfigured
 from django.core.mail.message import EmailMessage, EmailMultiAlternatives
-from django.template import Context, Template
-from django.template.loader import get_template, select_template
-from django.contrib.sites.models import Site
+from django.template.loader import get_template, select_template, _engine_list
 
-from django_yubin.mail_utils import unescape
 
+def template_from_string(template_string, using=None):
+    """
+    Creates and returns a template for the given string.
+    """
+    engine = _engine_list(using)[0]
+    return engine.from_string(template_string)
 
 
 class EmailMessageView(object):
@@ -41,6 +45,7 @@ class EmailMessageView(object):
 
         :param priority
         :type string
+            now-not-queued
             now
             high
             normal
@@ -61,9 +66,9 @@ class EmailMessageView(object):
         """
         Returns the context that will be used for rendering this message.
 
-        :rtype: :class:`django.template.Context`
+        :rtype: :class:`dict`
         """
-        return Context(kwargs)
+        return kwargs
 
     def render_to_message(self, extra_context=None, **kwargs):
         """
@@ -196,35 +201,28 @@ class TemplatedEmailMessageView(EmailMessageView):
     #: will be used instead.
     body_template = property(_get_body_template, _set_body_template)
 
-
     def render_subject(self, context):
         """
         Renders the message subject for the given context.
 
-        The context data is automatically unescaped to avoid rendering HTML
-        entities in ``text/plain`` content.
-
         :param context: The context to use when rendering the subject template.
-        :type context: :class:`~django.template.Context`
+        :type context: :class:`dict`
         :returns: A rendered subject.
         :rtype: :class:`str`
         """
-        rendered = self.subject_template.render(unescape(context))
+        rendered = self.subject_template.render(context)
         return rendered.strip()
 
     def render_body(self, context):
         """
         Renders the message body for the given context.
 
-        The context data is automatically unescaped to avoid rendering HTML
-        entities in ``text/plain`` content.
-
         :param context: The context to use when rendering the body template.
-        :type context: :class:`~django.template.Context`
+        :type context: :class:`dict`
         :returns: A rendered body.
         :rtype: :class:`str`
         """
-        return self.body_template.render(unescape(context))
+        return self.body_template.render(context)
 
 
 class TemplatedHTMLEmailMessageView(TemplatedEmailMessageView):
@@ -277,7 +275,7 @@ class TemplatedHTMLEmailMessageView(TemplatedEmailMessageView):
         Renders the message body for the given context.
 
         :param context: The context to use when rendering the body template.
-        :type context: :class:`~django.template.Context`
+        :type context: :class:`dict`
         :returns: A rendered HTML body.
         :rtype: :class:`str`
         """
@@ -320,12 +318,48 @@ class TemplatedHTMLEmailMessageView(TemplatedEmailMessageView):
 
 class TemplatedAttachmentEmailMessageView(TemplatedHTMLEmailMessageView):
     """
-    This is a sintactic sugar class to allow us to send mail messages with
+    This is a syntactic sugar class to allow us to send mail messages with
     an attachment
     """
 
-    def render_to_message(self, extra_context=None, attachment=None,
-                          mimetype=None, *args, **kwargs):
+    def send(self, extra_context=None, **kwargs):
+        """
+        Renders and sends an email message.
+
+        All keyword arguments other than ``extra_context`` are passed through
+        as keyword arguments when constructing a new :attr:`message_class`
+        instance for this message.
+
+        This method exists primarily for convenience, and the proper
+        rendering of your message should not depend on the behavior of this
+        method. To alter how a message is created, override
+        :meth:``render_to_message`` instead, since that should always be
+        called, even if a message is not sent.
+
+        :param extra_context: Any additional context data that will be used
+            when rendering this message.
+
+        :param kwargs : mail settings
+            from_email=None,
+            to=None,
+            bcc=None,
+            connection=None,
+            attachments=None,
+            cc=None
+            headers=None,
+            filename=None,
+
+        :type extra_context: :class:`dict`
+
+        """
+        if kwargs.get("filename") and not kwargs.get("attachment"):
+            raise Exception("If filename is passed, an attachment must be provided")
+        if not kwargs.get("filename") and kwargs.get("attachment"):
+            raise Exception("If attachment is passed, a filename must be provided")
+        message = self.render_to_message(extra_context=extra_context, **kwargs)
+        return message.send()
+
+    def render_to_message(self, extra_context=None, filename=None, attachment=None, mimetype=None, *args, **kwargs):
         """
         Renders and returns an unsent message with the given context.
 
@@ -344,6 +378,9 @@ class TemplatedAttachmentEmailMessageView(TemplatedHTMLEmailMessageView):
             attachments=None,
             cc=None
             headers=None,
+        :param filename: filename (with extension) of the attachment
+        :param attachment: attachment content
+        :param mimetype: mimetype of attachment
 
         :returns: A message instance.
         :rtype: :attr:`.message_class`
@@ -354,22 +391,106 @@ class TemplatedAttachmentEmailMessageView(TemplatedHTMLEmailMessageView):
 
         if extra_context is None:
             extra_context = {}
-
         context = self.get_context_data(**extra_context)
         content = self.render_html_body(context)
         message.attach_alternative(content, mimetype='text/html')
-        if attachment:
-            if type(attachment) == 'string':
-                message.attach(filename=attachment, mimetype=mimetype)
-            else:
-                message.attach(content=attachment, mimetype=mimetype)
+        if filename and attachment:
+            message.attach(filename=filename, content=attachment, mimetype=mimetype)
+
+        return message
+
+
+class TemplatedMultipleAttachmentsEmailMessageView(TemplatedHTMLEmailMessageView):
+    """
+    This is a syntactic sugar class to allow us to send mail messages with
+    multiple attachments
+    """
+
+    def send(self, extra_context=None, attachments=None, **kwargs):
+        """
+        Renders and sends an email message.
+
+        All keyword arguments other than ``extra_context`` are passed through
+        as keyword arguments when constructing a new :attr:`message_class`
+        instance for this message.
+
+        This method exists primarily for convenience, and the proper
+        rendering of your message should not depend on the behavior of this
+        method. To alter how a message is created, override
+        :meth:``render_to_message`` instead, since that should always be
+        called, even if a message is not sent.
+
+        :param extra_context: Any additional context data that will be used
+            when rendering this message
+        :param attachments: List of dicts with filename and attachment file, with keys 'filename', 'attachment'
+        and 'mimetype'.
+
+        Attachments example -> [{"filename": "filename.pdf", "attachment": "file-path",},...]
+
+        :param kwargs : mail settings
+            from_email=None,
+            to=None,
+            bcc=None,
+            connection=None,
+            cc=None
+            headers=None,
+
+        :type extra_context: :class:`dict`
+        :type attachments: :class:`list`
+
+        """
+
+        if isinstance(attachments, list):
+            for attachment in attachments:
+                if not attachment.get("filename") or not attachment.get("attachment"):
+                    raise Exception("'filename', 'attachment' are mandatory for every attachment")
+
+        message = self.render_to_message(extra_context=extra_context, attachments=attachments, **kwargs)
+        return message.send()
+
+    def render_to_message(self, extra_context=None, attachments=None, *args, **kwargs):
+        """
+        Renders and returns an unsent message with the given context.
+
+        Any extra keyword arguments passed will be passed through as keyword
+        arguments to the message constructor.
+
+        :param extra_context: Any additional context to use when rendering
+            templated content.
+        :type extra_context: :class:`dict`
+        :param attachments: List of dicts with filename and attachment file
+        :type attachments: :class:`list`
+
+        :param kwargs : mail settings
+            from_email=None,
+            to=None,
+            bcc=None,
+            connection=None,
+            cc=None
+            headers=None,
+
+        :returns: A message instance.
+        :rtype: :attr:`.message_class`
+        """
+
+        message = super(TemplatedMultipleAttachmentsEmailMessageView, self).render_to_message(
+            extra_context, *args, **kwargs)
+
+        if extra_context is None:
+            extra_context = {}
+        context = self.get_context_data(**extra_context)
+        content = self.render_html_body(context)
+        message.attach_alternative(content, mimetype='text/html')
+        if isinstance(attachments, list):
+            for attachment in attachments:
+                message.attach(filename=attachment.get("filename"), content=attachment.get("attachment"))
 
         return message
 
 
 class TemplateContextMixin(object):
-    subject_template = Template('{{ subject }}')
-    body_template = Template('{{ content }}')
+    subject_template = template_from_string('{% autoescape off %}{{ subject }}{% endautoescape %}')
+    body_template = template_from_string('{% autoescape off %}{{ content }}{% endautoescape %}')
 
     def __init__(self, subject, content):
         self.subject = subject
@@ -389,4 +510,21 @@ class BasicEmailMessageView(TemplateContextMixin, TemplatedEmailMessageView):
 
 
 class BasicHTMLEmailMessageView(TemplateContextMixin, TemplatedHTMLEmailMessageView):
-    html_body_template = Template('{{ content|linebreaks }}')
+    html_body_template = template_from_string(
+        '{% autoescape off %}{{ content|linebreaks }}{% endautoescape %}')
+
+
+class BasicHTMLAttachmentEmailMessageView(TemplateContextMixin, TemplatedAttachmentEmailMessageView):
+    html_body_template = template_from_string(
+        '{% autoescape off %}{{ content|linebreaks }}{% endautoescape %}')
+
+    def __init__(self, subject, content, attachment, filename, mimetype):
+        super(BasicHTMLAttachmentEmailMessageView, self).__init__(subject, content)
+        self.attachment = attachment
+        self.filename = filename
+        self.mimetype = mimetype
+
+    def render_to_message(self, *args, **kwargs):
+        msg = super(BasicHTMLAttachmentEmailMessageView, self).render_to_message(*args, **kwargs)
+        msg.attach(filename=self.filename, content=self.attachment, mimetype=self.mimetype)
+        return msg

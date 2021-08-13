@@ -2,7 +2,7 @@
 Installation
 ============
 
-An obvious prerequisite of django-yubin is Django - 1.3 is the
+An obvious prerequisite of django-yubin is Django - 1.9 is the
 minimum supported version.
 
 
@@ -58,6 +58,12 @@ To queue all django mail you must configure the mail backend as
     EMAIL_BACKEND = 'django_yubin.smtp_queue.EmailBackend'
 
 More details can be found in the queue documentation.
+
+Add *yubin* urls in your main *urls.py* for use the health check.
+
+.. code:: python
+
+    url(r'^yubin/', include('django_yubin.urls')),
 
 
 Upgrading from previous versions

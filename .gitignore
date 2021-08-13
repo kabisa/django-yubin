@@ -4,6 +4,7 @@
 /django_yubin.egg-info/
 /docs/_build
 .idea/*
+.vscode/
 .eggs/
 .DS_Store
 
@@ -11,3 +12,4 @@
 .tox
 .coverage
 cover
+demo.sqlite
