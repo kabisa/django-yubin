@@ -3,12 +3,15 @@
 # ----------------------------------------------------------------------------
 
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 from django.utils.encoding import force_bytes
 from django.utils.timezone import now
-from django_yubin import constants, managers
+from django.utils.translation import gettext_lazy as _
 
 from pyzmail.parse import message_from_string, message_from_bytes
 from six import python_2_unicode_compatible
+
+from django_yubin import constants, managers
 
 
 PRIORITIES = (
@@ -38,6 +41,15 @@ class Message(models.Model):
     """
     to_address = models.CharField(max_length=200)
     from_address = models.CharField(max_length=200)
+
+    cc_recipients = ArrayField(
+        models.EmailField(), verbose_name=_("CC"), blank=True, null=True
+    )
+
+    bcc_recipients = ArrayField(
+        models.EmailField(), verbose_name=_("BCC"), blank=True, null=True
+    )
+
     subject = models.CharField(max_length=255)
 
     encoded_message = models.TextField()
@@ -50,6 +62,22 @@ class Message(models.Model):
     def __str__(self):
         return '%s: %s' % (self.to_address, self.subject)
 
+    def save(self, **kwargs):
+        pyz_message = self.get_pyz_message()
+
+        cc_recipients = self.cc_recipients or []
+        bcc_recipients = self.bcc_recipients or []
+
+        self.cc_recipients = list(
+            set(pyz_message.get_all("Cc", [])) | set(cc_recipients)
+        )
+
+        self.bcc_recipients = list(
+            set(pyz_message.get_all("Bcc", [])) | set(bcc_recipients)
+        )
+
+        super(Message, self).save(**kwargs)
+
     def get_pyz_message(self):
         try:
             msg = message_from_string(self.encoded_message)
@@ -58,6 +86,12 @@ class Message(models.Model):
         except (TypeError, AttributeError):
             msg = message_from_bytes(self.encoded_message)
         return msg
+
+    def get_cc_recipients_display(self):
+        return ",".join(self.cc_recipients) if self.cc_recipients else ""
+
+    def get_bcc_recipients_display(self):
+        return ",".join(self.bcc_recipients) if self.bcc_recipients else ""
 
 
 class QueuedMessage(models.Model):
