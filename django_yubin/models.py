@@ -69,11 +69,11 @@ class Message(models.Model):
         bcc_recipients = self.bcc_recipients or []
 
         self.cc_recipients = list(
-            set(pyz_message.get_all("Cc", [])) | set(cc_recipients)
+            set(self._parse_cc_recipients()) | set(cc_recipients)
         )
 
         self.bcc_recipients = list(
-            set(pyz_message.get_all("Bcc", [])) | set(bcc_recipients)
+            set(self._parse_bcc_recipients()) | set(bcc_recipients)
         )
 
         super(Message, self).save(**kwargs)
@@ -86,6 +86,20 @@ class Message(models.Model):
         except (TypeError, AttributeError):
             msg = message_from_bytes(self.encoded_message)
         return msg
+
+    def _parse_bcc_recipients(self):
+        return [
+            recipient.strip()
+            for recipient in self.get_pyz_message().get("Bcc", "").split(",")
+            if recipient.strip()
+        ]
+
+    def _parse_cc_recipients(self):
+        return [
+            recipient.strip()
+            for recipient in self.get_pyz_message().get("Cc", "").split(",")
+            if recipient.strip()
+        ]
 
     def get_cc_recipients_display(self):
         return ",".join(self.cc_recipients) if self.cc_recipients else ""
