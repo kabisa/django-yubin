@@ -8,7 +8,7 @@ from django.utils.encoding import force_bytes
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 
-from pyzmail.parse import message_from_string, message_from_bytes
+from mailparser import parse_from_string, parse_from_bytes
 from six import python_2_unicode_compatible
 
 from django_yubin import constants, managers
@@ -78,13 +78,13 @@ class Message(models.Model):
 
         super(Message, self).save(**kwargs)
 
-    def get_pyz_message(self):
+    def get_message(self):
         try:
-            msg = message_from_string(self.encoded_message)
+            msg = parse_from_string(self.encoded_message)
         except UnicodeEncodeError:
-            msg = message_from_string(force_bytes(self.encoded_message))
+            msg = parse_from_string(force_bytes(self.encoded_message))
         except (TypeError, AttributeError):
-            msg = message_from_bytes(self.encoded_message)
+            msg = parse_from_bytes(self.encoded_message)
         return msg
 
     def _parse_bcc_recipients(self):
