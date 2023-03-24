@@ -63,7 +63,7 @@ class Message(models.Model):
         return '%s: %s' % (self.to_address, self.subject)
 
     def save(self, **kwargs):
-        pyz_message = self.get_pyz_message()
+        message = self.get_message()
 
         cc_recipients = self.cc_recipients or []
         bcc_recipients = self.bcc_recipients or []
@@ -76,7 +76,7 @@ class Message(models.Model):
             set(self._parse_bcc_recipients()) | set(bcc_recipients)
         )
 
-        super(Message, self).save(**kwargs)
+        super().save(**kwargs)
 
     def get_message(self):
         try:
