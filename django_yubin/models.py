@@ -88,16 +88,20 @@ class Message(models.Model):
         return msg
 
     def _parse_bcc_recipients(self):
+        message = self.get_message()
+
         return [
             recipient.strip()
-            for recipient in self.get_pyz_message().get("Bcc", "").split(",")
+            for recipient in message.headers.get("Bcc", "").split(",")
             if recipient.strip()
         ]
 
     def _parse_cc_recipients(self):
+        message = self.get_message()
+
         return [
             recipient.strip()
-            for recipient in self.get_pyz_message().get("Cc", "").split(",")
+            for recipient in message.headers.get("Cc", "").split(",")
             if recipient.strip()
         ]
 
