@@ -2,6 +2,7 @@
 # encoding: utf-8
 # ----------------------------------------------------------------------------
 
+import binascii
 import hashlib
 import base64
 
@@ -19,10 +20,28 @@ class Attachment(object):
         self.filename = mailpart['filename']
         self.tipus = mailpart['mail_content_type']
         self.charset = mailpart['charset']
-        self.payload = base64.b64decode(mailpart['payload'])
-        self.length = len(self.payload)
-        self.firma = hashlib.md5(self.payload).hexdigest()
 
+        self.set_payload(mailpart)
+
+    def set_payload(self, mailpart):
+        payload = mailpart['payload']
+
+        if mailpart["content_transfer_encoding"] == "base64":
+            try:
+                self.payload = base64.b64decode(payload)
+
+                self.length = len(self.payload)
+                self.firma = hashlib.md5(self.payload).hexdigest()
+            except binascii.Error:
+                self.payload = "Incorrect data"
+
+                self.length = len(self.payload)
+                self.firma = hashlib.md5(self.payload.encode("utf-8")).hexdigest()
+        else:
+            self.payload = payload
+            self.firma = hashlib.md5(payload.encode("utf-8")).hexdigest()
+
+        self.length = len(self.payload)
 
 def get_attachments(msg):
     """
