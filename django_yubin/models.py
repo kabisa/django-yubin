@@ -63,8 +63,6 @@ class Message(models.Model):
         return '%s: %s' % (self.to_address, self.subject)
 
     def save(self, **kwargs):
-        message = self.get_message()
-
         cc_recipients = self.cc_recipients or []
         bcc_recipients = self.bcc_recipients or []
 
@@ -78,21 +76,24 @@ class Message(models.Model):
 
         super().save(**kwargs)
 
-    def get_message(self):
+    def get_mailparser_message(self):
         try:
-            msg = parse_from_string(self.encoded_message)
+            return parse_from_string(self.encoded_message)
         except UnicodeEncodeError:
-            msg = parse_from_string(force_bytes(self.encoded_message))
+            return parse_from_string(force_bytes(self.encoded_message))
         except (TypeError, AttributeError):
-            msg = parse_from_bytes(self.encoded_message)
-        return msg
+            return parse_from_bytes(self.encoded_message)
+
+    def get_message(self):
+        mailparser_message = self.get_mailparser_message()
+        return mailparser_message.message
 
     def _parse_bcc_recipients(self):
         message = self.get_message()
 
         return [
             recipient.strip()
-            for recipient in message.headers.get("Bcc", "").split(",")
+            for recipient in message.get("Bcc", "").split(",")
             if recipient.strip()
         ]
 
@@ -101,7 +102,7 @@ class Message(models.Model):
 
         return [
             recipient.strip()
-            for recipient in message.headers.get("Cc", "").split(",")
+            for recipient in message.get("Cc", "").split(",")
             if recipient.strip()
         ]
 
